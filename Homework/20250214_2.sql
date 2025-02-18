@@ -1,3 +1,6 @@
+-- ==============================
+-- 9. Пример скрипта для расчета интерполяции
+-- ==============================
 DO $$
 DECLARE 
     var_interpolation "Maximiliano".interpolation_type;
@@ -9,22 +12,24 @@ DECLARE
 BEGIN
     RAISE NOTICE 'Расчет интерполяции для температуры %', var_temperature;
 
-    -- Проверка наличия точного совпадения
+    -- Проверим, возможно температура совпадает со значением в справочнике
     IF EXISTS (SELECT 1 FROM "Maximiliano".calc_temperatures_correction WHERE temperature = var_temperature) THEN
-        SELECT correction INTO var_result 
+        SELECT correction 
+        INTO var_result 
         FROM "Maximiliano".calc_temperatures_correction
         WHERE temperature = var_temperature;
     ELSE    
-        -- Получение диапазона
+        -- Получим диапазон, в котором работают поправки
         SELECT MIN(temperature), MAX(temperature) 
         INTO var_min_temparure, var_max_temperature
         FROM "Maximiliano".calc_temperatures_correction;
 
         IF var_temperature < var_min_temparure OR var_temperature > var_max_temperature THEN
-            RAISE EXCEPTION 'Некорректно передан параметр! Невозможно рассчитать поправку.';
+            RAISE EXCEPTION 'Некорректно передан параметр! Невозможно рассчитать поправку. Значение должно укладываться в диапазон: %, %',
+                var_min_temparure, var_max_temperature;
         END IF;   
 
-        -- Получение граничных значений
+        -- Получим граничные параметры
         SELECT x0, y0, x1, y1 
         INTO var_interpolation.x0, var_interpolation.y0, var_interpolation.x1, var_interpolation.y1
         FROM (
@@ -41,6 +46,8 @@ BEGIN
             ORDER BY t1.temperature 
             LIMIT 1
         ) AS rightPart;
+
+        RAISE NOTICE 'Граничные значения: %', var_interpolation;
 
         -- Расчет поправки
         var_denominator := var_interpolation.x1 - var_interpolation.x0;
